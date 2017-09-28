@@ -1,11 +1,11 @@
-using Microsoft.CodeAnalysis.Text;
+﻿using Microsoft.CodeAnalysis.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Linq;
 
 namespace Roslyn.AutoLogging.Test
 {
     [TestClass]
-    public class UnitTest
+    public class InvocationLoggingTests
     {
         [TestMethod]
         public void OnEmptyCode_NothingHappens()
@@ -20,29 +20,6 @@ namespace Roslyn.AutoLogging.Test
                     var len = proposedCodeRefactorings.Count();
                     Assert.AreEqual(len, 0);
                 });
-        }
-
-        [TestMethod]
-        public void OnTypeNameClick_WillReverseName()
-        {
-            var testClassFileContents = @"
-using System;
-
-public class FooBar
-{
-}";
-
-            var testClassExpectedNewContents = @"
-using System;
-
-public class raBooF
-{
-}";
-
-            TestUtil.TestAssertingEndText(
-                            testClassFileContents,
-                            "FooBar",
-                            testClassExpectedNewContents);
         }
     }
 }

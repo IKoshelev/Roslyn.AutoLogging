@@ -57,6 +57,12 @@
     <Content Include="stylesheet.css" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\Roslyn.Syntax.Util\Roslyn.Syntax.Util\Roslyn.Syntax.Util.csproj">
+      <Project>{E97C0F7B-169C-4CC2-92D5-EE620922918F}</Project>
+      <Name>Roslyn.Syntax.Util</Name>
+      <IncludeOutputGroupsInVSIX>BuiltProjectOutputGroup%3bBuiltProjectOutputGroupDependencies%3bGetCopyToOutputDirectoryItems%3bSatelliteDllsProjectOutputGroup%3b</IncludeOutputGroupsInVSIX>
+      <IncludeOutputGroupsInVSIXLocalOnly>DebugSymbolsProjectOutputGroup%3b</IncludeOutputGroupsInVSIXLocalOnly>
+    </ProjectReference>
     <ProjectReference Include="..\Roslyn.AutoLogging\Roslyn.AutoLogging.csproj">
       <Project>{7c28ebad-cbb5-48ba-add8-9f8311497649}</Project>
       <Name>Roslyn.AutoLogging</Name>

@@ -1,61 +1,240 @@
-﻿using System.Collections.Generic;
-using System.Composition;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeRefactorings;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Rename;
-using Microsoft.CodeAnalysis.Text;
+using Roslyn.Syntax.Util;
+using System;
+using System.Composition;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using SF = Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace Roslyn.Autologging
 {
     [ExportCodeRefactoringProvider(LanguageNames.CSharp, Name = nameof(RoslynAutologCodeRefactoringProvider)), Shared]
     public class RoslynAutologCodeRefactoringProvider : CodeRefactoringProvider
     {
+        public static string LoggerClassName = "_log";
+        public static string LogMethodEntryName = "LogMethodEntry";
+        public static string LogMethodReturnName = "LogMethodReturn";
+
         public sealed override async Task ComputeRefactoringsAsync(CodeRefactoringContext context)
         {
-            // TODO: Replace the following code with your own analysis, generating a CodeAction for each refactoring to offer
-
             var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
 
-            // Find the node at the selection.
             var node = root.FindNode(context.Span);
 
             // Only offer a refactoring if the selected node is a type declaration node.
-            var typeDecl = node as TypeDeclarationSyntax;
-            if (typeDecl == null)
+            var methodDecl = node as MethodDeclarationSyntax;
+            if (methodDecl == null)
             {
                 return;
             }
 
-            // For any type declaration node, create a code action to reverse the identifier text.
-            var action = CodeAction.Create("Reverse type name", c => ReverseTypeNameAsync(context.Document, typeDecl, c));
+            var action = CodeAction.Create("Insert entry and return logging", 
+                c => InsertEntryAndReturnLogging(context.Document, methodDecl, c));
 
             // Register this code action.
             context.RegisterRefactoring(action);
         }
 
-        private async Task<Solution> ReverseTypeNameAsync(Document document, TypeDeclarationSyntax typeDecl, CancellationToken cancellationToken)
+        private async Task<Document> InsertEntryAndReturnLogging(
+                                                            Document document, 
+                                                            MethodDeclarationSyntax methodDecl,
+                                                            CancellationToken cancellationToken)
         {
-            // Produce a reversed version of the type declaration's identifier token.
-            var identifierToken = typeDecl.Identifier;
-            var newName = new string(identifierToken.Text.ToCharArray().Reverse().ToArray());
+            var root = await document.GetSyntaxRootAsync(cancellationToken);
+            var newMethod = methodDecl;
 
-            // Get the symbol representing the type to be renamed.
-            var semanticModel = await document.GetSemanticModelAsync(cancellationToken);
-            var typeSymbol = semanticModel.GetDeclaredSymbol(typeDecl, cancellationToken);
+            var parameterIdentifiers = methodDecl.GetParameterIdentifiers();
 
-            // Produce a new solution that has all references to that type renamed, including the declaration.
-            var originalSolution = document.Project.Solution;
-            var optionSet = originalSolution.Workspace.Options;
-            var newSolution = await Renamer.RenameSymbolAsync(document.Project.Solution, typeSymbol, newName, optionSet, cancellationToken).ConfigureAwait(false);
+            newMethod = AddEntryLogging(newMethod, parameterIdentifiers);
 
-            // Return the new solution with the now-uppercase type name.
-            return newSolution;
+            newMethod = AddReturnLogging(newMethod);
+
+            var newDocumentRoot = root.ReplaceNode(methodDecl, newMethod);
+            document = document.WithSyntaxRoot(newDocumentRoot);
+            return document;
         }
+
+        private async Task<Document> InsertAssignmentLogging(
+                                                    Document document,
+                                                    MethodDeclarationSyntax methodDecl,
+                                                    CancellationToken cancellationToken)
+        {
+            var root = await document.GetSyntaxRootAsync(cancellationToken);
+            var newMethod = methodDecl;
+
+            //var parameterIdentifiers = methodDecl.GetParameterIdentifiers();
+
+            //newMethod = AddEntryLogging(newMethod, parameterIdentifiers);
+
+            //newMethod = AddReturnLogging(newMethod);
+
+            var newDocumentRoot = root.ReplaceNode(methodDecl, newMethod);
+            document = document.WithSyntaxRoot(newDocumentRoot);
+            return document;
+        }
+
+        private MethodDeclarationSyntax AddEntryLogging(
+            MethodDeclarationSyntax methodDecl,
+            SyntaxToken[] identifiersToLog)
+        {
+            var logInvocationSyntax = GetLoggingStatementWithDictionaryState(
+                                                        methodDecl,
+                                                        LogMethodEntryName, 
+                                                        identifiersToLog);
+
+            logInvocationSyntax = logInvocationSyntax.WithTrailingTrivia(SF.LineFeed, SF.LineFeed);
+
+            MethodDeclarationSyntax newMethod = methodDecl.WithStatementAtTheBegining(logInvocationSyntax);
+
+            return newMethod;
+        }
+
+        private static StatementSyntax GetLoggingStatementWithDictionaryState(
+            MethodDeclarationSyntax methodDecl,
+            string logMethodName, 
+            params SyntaxToken[] stateToLog)
+        {
+            var methodName = methodDecl.Identifier.TrimmedText();
+
+            string logInvocationStr =
+                    $@"{LoggerClassName}.{logMethodName}(nameof({methodName})";
+
+            if (stateToLog.Any())
+            {
+                var dictionaryLiteralParameters = stateToLog
+                                                        .Select(x => x.TrimmedText())
+                                                        .Select(x => $"{{nameof({x}),{x}}}");
+
+                var dictionaryLiteralParametersStr = String.Join(",\r\n", dictionaryLiteralParameters);
+
+                logInvocationStr +=
+                    $@", new Dictionary<string,object>()
+{{
+{dictionaryLiteralParametersStr}
+}});
+";
+            }
+            else
+            {
+                logInvocationStr += ");";
+            }
+
+            var statement = SF.ParseStatement(logInvocationStr);
+
+            return statement;
+        }
+
+        private static StatementSyntax GetLoggingStatementWithSingleState(
+                                                         MethodDeclarationSyntax methodDecl,
+                                                         string logMethodName,
+                                                         SyntaxToken stateToLog)
+        {
+            var methodName = methodDecl.Identifier.TrimmedText();
+
+            string logInvocationStr =
+                    $@"{LoggerClassName}.{logMethodName}(nameof({methodName}), {stateToLog.TrimmedText()});";
+
+            var statement = SF.ParseStatement(logInvocationStr);
+
+            return statement;
+        }
+
+        private MethodDeclarationSyntax AddReturnLogging(MethodDeclarationSyntax methodDecl)
+        {
+            var returnType = methodDecl.ReturnType;
+            MethodDeclarationSyntax newMethod = methodDecl;
+
+            var isVoid = returnType.ChildTokens().Any(x => x.Kind() == SyntaxKind.VoidKeyword);
+
+            var returnStatements = methodDecl
+                                        .Body
+                                        .DescendantNodes()
+                                        .OfType<ReturnStatementSyntax>()
+                                        .Where(node => methodDecl.DirectlyContains(node))
+                                        .ToArray();
+
+            newMethod = newMethod.TrackNodes(returnStatements);
+
+            if (isVoid)
+            {
+                var loggingInvocation = GetLoggingStatementWithDictionaryState(methodDecl, LogMethodReturnName);
+
+                loggingInvocation = loggingInvocation.WithTrailingTrivia(SF.LineFeed);
+
+                foreach(var statement in returnStatements)
+                {
+                    newMethod = newMethod.WithTracking(x => x.InsertNodesBefore, statement, new[] { loggingInvocation });
+                }
+
+                return newMethod;
+            }
+
+            var resultBuffVarBame = "result";
+            var isResultBuffVarCreated = false;
+            foreach (var statement in returnStatements)
+            {
+                switch (statement.Expression)
+                {
+                    case IdentifierNameSyntax id:             
+                        var loggingInvocation = GetLoggingStatementWithSingleState(
+                                                                methodDecl, 
+                                                                LogMethodReturnName, 
+                                                                id.ChildTokens().Single());
+
+                        loggingInvocation = loggingInvocation
+                                                    .WithLeadingTrivia(SF.LineFeed)
+                                                    .WithTrailingTrivia(SF.LineFeed);
+
+                        newMethod = newMethod.WithTracking(x => x.InsertNodesBefore, statement, new[] { loggingInvocation });
+                        break;
+
+                    default:
+                        if (isResultBuffVarCreated == false)
+                        {
+                            var declaration = LocalVariableExtensions
+                                                    .LocalVairableDeclaration(
+                                                            methodDecl.ReturnType,
+                                                            resultBuffVarBame,
+                                                            statement.Expression)
+                                                    .WithTrailingTrivia(SF.EndOfLine("\r\n"));
+
+                            newMethod = newMethod.WithTracking(x => x.InsertNodesBefore, statement, new[] { declaration });
+                            isResultBuffVarCreated = true;
+                        }
+                        else
+                        {
+                            var assignment = SF.ExpressionStatement(
+                                                    SF.AssignmentExpression(
+                                                        SyntaxKind.SimpleAssignmentExpression,
+                                                        SF.IdentifierName(resultBuffVarBame),
+                                                        statement.Expression))
+                                                    .WithTrailingTrivia(SF.EndOfLine("\r\n"));
+
+                            newMethod = newMethod.WithTracking(x => x.InsertNodesBefore, statement, new[] { assignment });
+                        }
+                     
+                        var logExpression = GetLoggingStatementWithSingleState(
+                                                                            methodDecl,
+                                                                            LogMethodReturnName,
+                                                                            SF.Identifier(resultBuffVarBame))
+                                                .WithTrailingTrivia(SF.EndOfLine("\r\n"));
+
+                        newMethod = newMethod.WithTracking(x => x.InsertNodesBefore, statement, new[] { logExpression });
+                        var newReturn = SF.ReturnStatement(SF.IdentifierName(" result"));
+
+                        newMethod = newMethod.WithTracking(x => x.ReplaceNode, statement, new[] { newReturn });
+                        break;
+                }
+            }
+
+            return newMethod;
+        }
+
+      
     }
 }
