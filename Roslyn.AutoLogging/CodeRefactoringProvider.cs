@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeRefactorings;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Formatting;
 using Roslyn.Syntax.Util;
 using System;
 using System.Composition;
@@ -19,6 +20,7 @@ namespace Roslyn.Autologging
         public static string LoggerClassName = "_log";
         public static string LogMethodEntryName = "LogMethodEntry";
         public static string LogMethodReturnName = "LogMethodReturn";
+        public static string LogAssignmentName = "LogAssginment";
 
         public sealed override async Task ComputeRefactoringsAsync(CodeRefactoringContext context)
         {
@@ -26,7 +28,6 @@ namespace Roslyn.Autologging
 
             var node = root.FindNode(context.Span);
 
-            // Only offer a refactoring if the selected node is a type declaration node.
             var methodDecl = node as MethodDeclarationSyntax;
             if (methodDecl == null)
             {
@@ -36,7 +37,11 @@ namespace Roslyn.Autologging
             var action = CodeAction.Create("Insert entry and return logging", 
                 c => InsertEntryAndReturnLogging(context.Document, methodDecl, c));
 
-            // Register this code action.
+            context.RegisterRefactoring(action);
+
+            action = CodeAction.Create("Insert assignment logging",
+                c => InsertAssignmentLogging(context.Document, methodDecl, c));
+
             context.RegisterRefactoring(action);
         }
 
@@ -45,6 +50,7 @@ namespace Roslyn.Autologging
                                                             MethodDeclarationSyntax methodDecl,
                                                             CancellationToken cancellationToken)
         {
+            var workspace = document.Project.Solution.Workspace;
             var root = await document.GetSyntaxRootAsync(cancellationToken);
             var newMethod = methodDecl;
 
@@ -54,7 +60,15 @@ namespace Roslyn.Autologging
 
             newMethod = AddReturnLogging(newMethod);
 
-            var newDocumentRoot = root.ReplaceNode(methodDecl, newMethod);
+            newMethod = newMethod.WithAdditionalAnnotations(Formatter.Annotation);
+
+            var formattedMethod = Formatter.Format( newMethod, 
+                                                    Formatter.Annotation, 
+                                                    workspace, 
+                                                    workspace.Options, 
+                                                    cancellationToken);
+
+            var newDocumentRoot = root.ReplaceNode(methodDecl, formattedMethod);
             document = document.WithSyntaxRoot(newDocumentRoot);
             return document;
         }
@@ -65,13 +79,31 @@ namespace Roslyn.Autologging
                                                     CancellationToken cancellationToken)
         {
             var root = await document.GetSyntaxRootAsync(cancellationToken);
-            var newMethod = methodDecl;
+            
 
             //var parameterIdentifiers = methodDecl.GetParameterIdentifiers();
 
-            //newMethod = AddEntryLogging(newMethod, parameterIdentifiers);
+            //var variableDeclarations = methodDecl.GetLocalVariableIdentifiers();
 
-            //newMethod = AddReturnLogging(newMethod);
+            //var typeDecl = methodDecl.GetDeclaringType();
+
+            //var typeMembers = typeDecl.GetFieldAndPropertyDeclarations();
+
+            var assignments = methodDecl
+                                    .Body
+                                    .DescendantNodes()
+                                    .OfType<AssignmentExpressionSyntax>()
+                                    .Where(methodDecl.DirectlyContains)
+                                    .ToArray();
+
+            var newMethod = methodDecl.TrackNodes(assignments);
+
+            //foreach (var assignment in assignments)
+            //{
+            //    var a = assignment;
+            //    var logExpression = GetLoggingStatementForAssignment(methodDecl, LogAssignmentName, assignment.Left);
+            //    newMethod = newMethod.WithTracking(node => node.ReplaceNode, a, new[] { a, logExpression });
+            //}
 
             var newDocumentRoot = root.ReplaceNode(methodDecl, newMethod);
             document = document.WithSyntaxRoot(newDocumentRoot);
@@ -138,6 +170,22 @@ namespace Roslyn.Autologging
 
             string logInvocationStr =
                     $@"{LoggerClassName}.{logMethodName}(nameof({methodName}), {stateToLog.TrimmedText()});";
+
+            var statement = SF.ParseStatement(logInvocationStr);
+
+            return statement;
+        }
+
+        private static StatementSyntax GetLoggingStatementForAssignment(
+                                                 MethodDeclarationSyntax methodDecl,
+                                                 string logMethodName,
+                                                 ExpressionSyntax stateToLog)
+        {
+            var methodName = methodDecl.Identifier.TrimmedText();
+            var expressionText = stateToLog.ToString();
+
+            string logInvocationStr =
+                    $@"{LoggerClassName}.{logMethodName}(nameof({methodName}), nameof({expressionText}), {expressionText});";
 
             var statement = SF.ParseStatement(logInvocationStr);
 

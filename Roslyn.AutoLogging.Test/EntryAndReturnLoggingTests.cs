@@ -42,7 +42,7 @@ public class FooBar
 {
     void TestMethod(int a, FooBar b)
     {
-        _log.LogMethodEntry(nameof(TestMethod), new Dictionary<string,object>()
+        _log.LogMethodEntry(nameof(TestMethod), new Dictionary<string, object>()
 {
 {nameof(a),a},
 {nameof(b),b}
@@ -107,13 +107,13 @@ public class FooBar
 {
     void TestMethod(int a, FooBar b)
     {
-_log.LogMethodEntry(nameof(TestMethod), new Dictionary<string,object>()
+        _log.LogMethodEntry(nameof(TestMethod), new Dictionary<string, object>()
 {
 {nameof(a),a},
 {nameof(b),b}
 });
 
-_log.LogMethodReturn(nameof(TestMethod));
+        _log.LogMethodReturn(nameof(TestMethod));
         return;
     }
 }";
@@ -152,17 +152,18 @@ public class FooBar
 {
     void TestMethod(int a, FooBar b)
     {
-_log.LogMethodEntry(nameof(TestMethod), new Dictionary<string,object>()
+        _log.LogMethodEntry(nameof(TestMethod), new Dictionary<string, object>()
 {
 {nameof(a),a},
 {nameof(b),b}
 });
 
-        void inner(){
+        void inner()
+        {
             return;
         }
         var a = new int[0];
-        var b = a.Select(x => 
+        var b = a.Select(x =>
         {
             return x;
         });
@@ -197,11 +198,11 @@ public class FooBar
 {
     object TestMethod()
     {
-_log.LogMethodEntry(nameof(TestMethod));
+        _log.LogMethodEntry(nameof(TestMethod));
 
         var a = null;
 
-_log.LogMethodReturn(nameof(TestMethod), a);
+        _log.LogMethodReturn(nameof(TestMethod), a);
         return a;
     }
 }";
@@ -233,9 +234,9 @@ public class FooBar
 {
     object TestMethod()
     {
-_log.LogMethodEntry(nameof(TestMethod));
+        _log.LogMethodEntry(nameof(TestMethod));
 
-    object result = null;
+        object result = null;
         _log.LogMethodReturn(nameof(TestMethod), result);
         return  result;
     }
@@ -274,10 +275,10 @@ public class FooBar
 {
     object TestMethod()
     {
-_log.LogMethodEntry(nameof(TestMethod));
+        _log.LogMethodEntry(nameof(TestMethod));
 
         var c = 5;
-    object result = 1;
+        object result = 1;
         _log.LogMethodReturn(nameof(TestMethod), result);
         return  result;
         _log.LogMethodReturn(nameof(TestMethod), c);

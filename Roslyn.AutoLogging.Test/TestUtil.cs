@@ -44,11 +44,11 @@ namespace Roslyn.AutoLogging.Test
                 refactoringSiteTextSpan,
                 (workspace, document, proposedCodeRefactorings) =>
                 {
-                    CodeAction refactoring = proposedCodeRefactorings.Single();
+                    CodeAction refactoring = proposedCodeRefactorings.ElementAt(refactoringNumber);
                     CodeActionOperation operation = refactoring
                                         .GetOperationsAsync(CancellationToken.None)
                                         .Result
-                                        .ElementAt(refactoringNumber);
+                                        .Single();
 
                     operation.Apply(workspace, CancellationToken.None);
 
