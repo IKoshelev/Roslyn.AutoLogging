@@ -4,6 +4,9 @@
         <Identity Id="Roslyn.AutoLogging.VSIX.d9d825bc-563b-440d-b19f-6096dc49fa1d" Version="1.0" Language="en-US" Publisher="Ivan Koshelev" />
         <DisplayName>Roslyn.AutoLogging.VSIX</DisplayName>
         <Description>Empty VSIX Project.</Description>
+        <MoreInfo>https://github.com/IKoshelev/Roslyn.AutoLogging</MoreInfo>
+        <License>https://opensource.org/licenses/MIT</License>
+        <Tags>Roslyn logging autologging</Tags>
     </Metadata>
     <Installation>
         <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[15.0,)" />
