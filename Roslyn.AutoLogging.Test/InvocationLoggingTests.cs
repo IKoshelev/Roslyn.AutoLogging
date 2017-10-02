@@ -21,5 +21,84 @@ namespace Roslyn.AutoLogging.Test
                     Assert.AreEqual(len, 0);
                 });
         }
+
+        [TestMethod]
+        public void OnMethodNameClick_CanInsertAssignmentLogging()
+        {
+            var testClassFileContents = @"
+using System;
+
+public class FooBar
+{
+    void TestMethod(int a, FooBar b)
+    {
+        a = null;
+    }
+}";
+
+            var testClassExpectedNewContents = @"
+using System;
+
+public class FooBar
+{
+    void TestMethod(int a, FooBar b)
+    {
+        a = null;
+        _log.LogAssginment(nameof(TestMethod), nameof(a), a);
+    }
+}";
+
+            TestUtil.TestAssertingEndText(
+                            testClassFileContents,
+                            "TestMethod",
+                            testClassExpectedNewContents,
+                            1);
+        }
+
+        [TestMethod]
+        public void OnMethodNameClick_CanInsertRelevantDeclarationLogging()
+        {
+            var testClassFileContents = @"
+using System;
+
+public class FooBar
+{
+    void TestMethod(int a, FooBar b)
+    {
+        object c = null;
+        var d = new int[0];
+        var e = new Object();
+        var f = new FooBar()
+        {
+            g = SomeMethod()           
+        };
+    }
+}";
+
+            var testClassExpectedNewContents = @"
+using System;
+
+public class FooBar
+{
+    void TestMethod(int a, FooBar b)
+    {
+        object c = null;
+        var d = new int[0];
+        var e = new Object();
+        _log.LogAssginment(nameof(TestMethod), nameof(e), e);
+        var f = new FooBar()
+        {
+            g = SomeMethod()
+        };
+        _log.LogAssginment(nameof(TestMethod), nameof(f), f);
+    }
+}";
+
+            TestUtil.TestAssertingEndText(
+                            testClassFileContents,
+                            "TestMethod",
+                            testClassExpectedNewContents,
+                            1);
+        }
     }
 }

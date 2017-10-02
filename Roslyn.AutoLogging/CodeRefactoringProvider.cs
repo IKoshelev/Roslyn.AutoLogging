@@ -60,15 +60,9 @@ namespace Roslyn.Autologging
 
             newMethod = AddReturnLogging(newMethod);
 
-            newMethod = newMethod.WithAdditionalAnnotations(Formatter.Annotation);
+            newMethod = Formatted(workspace, newMethod, cancellationToken);
 
-            var formattedMethod = Formatter.Format( newMethod, 
-                                                    Formatter.Annotation, 
-                                                    workspace, 
-                                                    workspace.Options, 
-                                                    cancellationToken);
-
-            var newDocumentRoot = root.ReplaceNode(methodDecl, formattedMethod);
+            var newDocumentRoot = root.ReplaceNode(methodDecl, newMethod);
             document = document.WithSyntaxRoot(newDocumentRoot);
             return document;
         }
@@ -78,41 +72,131 @@ namespace Roslyn.Autologging
                                                     MethodDeclarationSyntax methodDecl,
                                                     CancellationToken cancellationToken)
         {
+            var workspace = document.Project.Solution.Workspace;
+
             var root = await document.GetSyntaxRootAsync(cancellationToken);
-            
 
-            //var parameterIdentifiers = methodDecl.GetParameterIdentifiers();
+            var newMethod = AddAssignementLogging(methodDecl);
+          
+            newMethod = AddDeclarationAssignementLogging(newMethod);
 
-            //var variableDeclarations = methodDecl.GetLocalVariableIdentifiers();
-
-            //var typeDecl = methodDecl.GetDeclaringType();
-
-            //var typeMembers = typeDecl.GetFieldAndPropertyDeclarations();
-
-            var assignments = methodDecl
-                                    .Body
-                                    .DescendantNodes()
-                                    .OfType<AssignmentExpressionSyntax>()
-                                    .Where(methodDecl.DirectlyContains)
-                                    .ToArray();
-
-            var newMethod = methodDecl.TrackNodes(assignments);
-
-            //foreach (var assignment in assignments)
-            //{
-            //    var a = assignment;
-            //    var logExpression = GetLoggingStatementForAssignment(methodDecl, LogAssignmentName, assignment.Left);
-            //    newMethod = newMethod.WithTracking(node => node.ReplaceNode, a, new[] { a, logExpression });
-            //}
+            newMethod = Formatted(workspace, newMethod, cancellationToken);
 
             var newDocumentRoot = root.ReplaceNode(methodDecl, newMethod);
             document = document.WithSyntaxRoot(newDocumentRoot);
             return document;
         }
 
+        private static MethodDeclarationSyntax AddDeclarationAssignementLogging(MethodDeclarationSyntax methodDecl)
+        {
+            var declarations = methodDecl
+                        .Body
+                        .DescendantNodes()
+                        .OfType<VariableDeclarationSyntax>()
+                        .Where(methodDecl.DirectlyContains)
+                        .Where(declaration => 
+                                    declaration
+                                          .DescendantNodes()
+                                          .Where(methodDecl.DirectlyContains)
+                                          .Any(node => node.Kind()
+                                                            .Fits(SyntaxKind.ObjectCreationExpression, 
+                                                                  SyntaxKind.InvocationExpression)))
+                        .ToArray();
+
+            var newMethod = methodDecl.TrackNodes(declarations);
+
+            foreach (var declaration in declarations)
+            {
+                var statements = newMethod.Body.Statements;
+
+                var assignemntCurrent = newMethod.GetCurrentNode(declaration);
+                var declarationSyntax = (LocalDeclarationStatementSyntax)assignemntCurrent.Parent;
+
+                var declarator = declaration
+                                        .DescendantNodes()
+                                        .OfType<VariableDeclaratorSyntax>()
+                                        .Single();
+
+                var logExpression = GetLoggingStatementWithSingleStateWithName(
+                                                                methodDecl,
+                                                                LogAssignmentName,
+                                                                declarator.Identifier);
+
+                logExpression = logExpression.WithTrailingTrivia(SF.LineFeed);
+
+                var declarationIndex = statements.IndexOf(declarationSyntax);
+
+                statements = statements.Insert(declarationIndex + 1, logExpression);
+
+                var newBody = newMethod.Body.WithStatements(statements);
+                newMethod = newMethod.WithBody(newBody);
+            }
+
+            return newMethod;
+        }
+
+            private static MethodDeclarationSyntax AddAssignementLogging(MethodDeclarationSyntax methodDecl)
+        {
+            var assignments = methodDecl
+                                    .Body
+                                    .DescendantNodes()
+                                    .OfType<AssignmentExpressionSyntax>()
+                                    .Where(methodDecl.DirectlyContains)
+                                    .Where(assignemnet =>
+                                        assignemnet.Ancestors()
+                                                    .Any(x => x
+                                                            .Kind()
+                                                            .Fits(SyntaxKind.AnonymousObjectCreationExpression,
+                                                                  SyntaxKind.ArrayCreationExpression,
+                                                                  SyntaxKind.ImplicitArrayCreationExpression,
+                                                                  SyntaxKind.ObjectCreationExpression)) == false)
+                                    .ToArray();
+
+            var newMethod = methodDecl.TrackNodes(assignments);
+
+            foreach (var assignment in assignments)
+            {
+                var statements = newMethod.Body.Statements;
+
+                var assignemntCurrent = newMethod.GetCurrentNode(assignment);
+                var expressionStatement = (ExpressionStatementSyntax)assignemntCurrent.Parent;
+
+                var logExpression = GetLoggingStatementForAssignment(
+                                                                methodDecl,
+                                                                LogAssignmentName,
+                                                                assignemntCurrent.Left);
+
+                logExpression = logExpression.WithTrailingTrivia(SF.LineFeed);
+
+                var assignmentIndex = statements.IndexOf(expressionStatement);
+
+                statements = statements.Insert(assignmentIndex + 1, logExpression);
+
+                var newBody = newMethod.Body.WithStatements(statements);
+                newMethod = newMethod.WithBody(newBody);
+            }
+
+            return newMethod;
+        }
+
+        private static MethodDeclarationSyntax Formatted(   Workspace workspace,
+                                                            MethodDeclarationSyntax newMethod,
+                                                            CancellationToken cancellationToken)
+        {
+            newMethod = newMethod.WithAdditionalAnnotations(Formatter.Annotation);
+
+            var formattedMethod = Formatter.Format(newMethod,
+                                                    Formatter.Annotation,
+                                                    workspace,
+                                                    workspace.Options,
+                                                    cancellationToken)
+                                                    as MethodDeclarationSyntax;
+            return formattedMethod;
+        }
+
         private MethodDeclarationSyntax AddEntryLogging(
-            MethodDeclarationSyntax methodDecl,
-            SyntaxToken[] identifiersToLog)
+                                                        MethodDeclarationSyntax methodDecl,
+                                                        SyntaxToken[] identifiersToLog)
         {
             var logInvocationSyntax = GetLoggingStatementWithDictionaryState(
                                                         methodDecl,
@@ -161,7 +245,7 @@ namespace Roslyn.Autologging
             return statement;
         }
 
-        private static StatementSyntax GetLoggingStatementWithSingleState(
+        private static StatementSyntax GetLoggingStatementWithSingleStateWithoutName(
                                                          MethodDeclarationSyntax methodDecl,
                                                          string logMethodName,
                                                          SyntaxToken stateToLog)
@@ -170,6 +254,21 @@ namespace Roslyn.Autologging
 
             string logInvocationStr =
                     $@"{LoggerClassName}.{logMethodName}(nameof({methodName}), {stateToLog.TrimmedText()});";
+
+            var statement = SF.ParseStatement(logInvocationStr);
+
+            return statement;
+        }
+
+        private static StatementSyntax GetLoggingStatementWithSingleStateWithName(
+                                                 MethodDeclarationSyntax methodDecl,
+                                                 string logMethodName,
+                                                 SyntaxToken stateToLog)
+        {
+            var methodName = methodDecl.Identifier.TrimmedText();
+
+            string logInvocationStr =
+                    $@"{LoggerClassName}.{logMethodName}(nameof({methodName}), nameof({stateToLog.TrimmedText()}), {stateToLog.TrimmedText()});";
 
             var statement = SF.ParseStatement(logInvocationStr);
 
@@ -229,7 +328,7 @@ namespace Roslyn.Autologging
                 switch (statement.Expression)
                 {
                     case IdentifierNameSyntax id:             
-                        var loggingInvocation = GetLoggingStatementWithSingleState(
+                        var loggingInvocation = GetLoggingStatementWithSingleStateWithoutName(
                                                                 methodDecl, 
                                                                 LogMethodReturnName, 
                                                                 id.ChildTokens().Single());
@@ -266,7 +365,7 @@ namespace Roslyn.Autologging
                             newMethod = newMethod.WithTracking(x => x.InsertNodesBefore, statement, new[] { assignment });
                         }
                      
-                        var logExpression = GetLoggingStatementWithSingleState(
+                        var logExpression = GetLoggingStatementWithSingleStateWithoutName(
                                                                             methodDecl,
                                                                             LogMethodReturnName,
                                                                             SF.Identifier(resultBuffVarBame))
@@ -281,8 +380,6 @@ namespace Roslyn.Autologging
             }
 
             return newMethod;
-        }
-
-      
+        }    
     }
 }

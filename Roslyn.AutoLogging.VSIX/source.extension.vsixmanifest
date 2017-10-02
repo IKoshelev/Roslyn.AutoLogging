@@ -15,7 +15,6 @@
     </Dependencies>
     <Assets>
         <Asset Type="Microsoft.VisualStudio.MefComponent" d:Source="Project" d:ProjectName="Roslyn.AutoLogging" Path="|Roslyn.AutoLogging|" />
-        <Asset Type="Microsoft.VisualStudio.Assembly" d:Source="Project" d:ProjectName="Roslyn.Syntax.Util" Path="|Roslyn.Syntax.Util|" AssemblyName="|Roslyn.Syntax.Util;AssemblyName|" />
     </Assets>
     <Prerequisites>
         <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[15.0,16.0)" DisplayName="Visual Studio core editor" />

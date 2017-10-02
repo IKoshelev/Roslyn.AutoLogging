@@ -9,8 +9,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Roslyn.AutoLogging.VSIX", "
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Roslyn.AutoLogging.Test", "Roslyn.AutoLogging.Test\Roslyn.AutoLogging.Test.csproj", "{3A258A98-8F54-46CC-B9E6-66285B287D24}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Roslyn.Syntax.Util", "..\Roslyn.Syntax.Util\Roslyn.Syntax.Util\Roslyn.Syntax.Util.csproj", "{E97C0F7B-169C-4CC2-92D5-EE620922918F}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -29,10 +27,6 @@ Global
 		{3A258A98-8F54-46CC-B9E6-66285B287D24}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3A258A98-8F54-46CC-B9E6-66285B287D24}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3A258A98-8F54-46CC-B9E6-66285B287D24}.Release|Any CPU.Build.0 = Release|Any CPU
-		{E97C0F7B-169C-4CC2-92D5-EE620922918F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{E97C0F7B-169C-4CC2-92D5-EE620922918F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{E97C0F7B-169C-4CC2-92D5-EE620922918F}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{E97C0F7B-169C-4CC2-92D5-EE620922918F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
