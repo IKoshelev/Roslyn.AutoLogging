@@ -3,7 +3,9 @@
     <Metadata>
         <Identity Id="Roslyn.AutoLogging._2015.VSIX.ad4274e6-5031-43b9-aa6b-0911d00bf755" Version="1.0" Language="en-US" Publisher="Ivan Koshelev" />
         <DisplayName>Roslyn.AutoLogging._2015.VSIX</DisplayName>
-        <Description>Empty VSIX Project.</Description>
+        <Description xml:space="preserve">Roslyn refactoring to automatically include extensive logging into methods.</Description>
+        <MoreInfo>https://github.com/IKoshelev/Roslyn.AutoLogging</MoreInfo>
+        <Tags>roslyn automatic logging</Tags>
     </Metadata>
     <Installation>
         <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[14.0]" />
