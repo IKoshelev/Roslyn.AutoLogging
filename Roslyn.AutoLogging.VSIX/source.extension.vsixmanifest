@@ -5,7 +5,6 @@
         <DisplayName>Roslyn.AutoLogging.VSIX</DisplayName>
         <Description>Empty VSIX Project.</Description>
         <MoreInfo>https://github.com/IKoshelev/Roslyn.AutoLogging</MoreInfo>
-        <License>https://opensource.org/licenses/MIT</License>
         <Tags>Roslyn logging autologging</Tags>
     </Metadata>
     <Installation>
