@@ -110,7 +110,11 @@ namespace Roslyn.Autologging
                 var statements = newMethod.Body.Statements;
 
                 var assignemntCurrent = newMethod.GetCurrentNode(declaration);
-                var declarationSyntax = (LocalDeclarationStatementSyntax)assignemntCurrent.Parent;
+                var declarationSyntax = assignemntCurrent.Parent as LocalDeclarationStatementSyntax;
+                if(declarationSyntax == null)
+                {
+                    continue;
+                }
 
                 var declarator = declaration
                                         .DescendantNodes()
@@ -159,7 +163,11 @@ namespace Roslyn.Autologging
                 var statements = newMethod.Body.Statements;
 
                 var assignemntCurrent = newMethod.GetCurrentNode(assignment);
-                var expressionStatement = (ExpressionStatementSyntax)assignemntCurrent.Parent;
+                var expressionStatement = assignemntCurrent.Parent as ExpressionStatementSyntax;
+                if(expressionStatement == null)
+                {
+                    continue;
+                }
 
                 var logExpression = GetLoggingStatementForAssignment(
                                                                 methodDecl,
