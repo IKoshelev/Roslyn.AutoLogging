@@ -94,27 +94,40 @@ namespace Roslyn.Autologging
                         .DescendantNodes()
                         .OfType<VariableDeclarationSyntax>()
                         .Where(methodDecl.DirectlyContains)
-                        .Where(declaration => 
+                        .Where(declaration =>
                                     declaration
-                                          .DescendantNodes()
-                                          .Where(methodDecl.DirectlyContains)
-                                          .Any(node => node.Kind()
-                                                            .Fits(SyntaxKind.ObjectCreationExpression, 
-                                                                  SyntaxKind.InvocationExpression)))
+                                          .ChildNodes().OfType<VariableDeclaratorSyntax>()
+                                          .SelectMany(node => node.ChildNodes().OfType<EqualsValueClauseSyntax>())
+                                          .SelectMany(node => node.DescendantNodes().Where(methodDecl.DirectlyContains))                                          
+                                          .Any(node => node.Kind().Fits(
+#if PCL
+#else
+                                                                        SyntaxKind.DefaultLiteralExpression,
+#endif
+                                                                        SyntaxKind.NumericLiteralToken,
+                                                                        SyntaxKind.CharacterLiteralToken,
+                                                                        SyntaxKind.StringLiteralToken,
+                                                                        SyntaxKind.NumericLiteralExpression,
+                                                                        SyntaxKind.StringLiteralExpression,
+                                                                        SyntaxKind.CharacterLiteralExpression,
+                                                                        SyntaxKind.TrueLiteralExpression,
+                                                                        SyntaxKind.FalseLiteralExpression,
+                                                                        SyntaxKind.NullLiteralExpression) == false))
                         .ToArray();
 
             var newMethod = methodDecl.TrackNodes(declarations);
 
             foreach (var declaration in declarations)
             {
-                var statements = newMethod.Body.Statements;
-
                 var assignemntCurrent = newMethod.GetCurrentNode(declaration);
                 var declarationSyntax = assignemntCurrent.Parent as LocalDeclarationStatementSyntax;
                 if(declarationSyntax == null)
                 {
                     continue;
                 }
+
+                var block = assignemntCurrent.FirstAncestorOrSelf<BlockSyntax>();
+                var statements = block.Statements;
 
                 var declarator = declaration
                                         .DescendantNodes()
@@ -132,8 +145,7 @@ namespace Roslyn.Autologging
 
                 statements = statements.Insert(declarationIndex + 1, logExpression);
 
-                var newBody = newMethod.Body.WithStatements(statements);
-                newMethod = newMethod.WithBody(newBody);
+                newMethod = newMethod.ReplaceNode(block, SF.Block(statements));
             }
 
             return newMethod;
@@ -160,14 +172,15 @@ namespace Roslyn.Autologging
 
             foreach (var assignment in assignments)
             {
-                var statements = newMethod.Body.Statements;
-
                 var assignemntCurrent = newMethod.GetCurrentNode(assignment);
                 var expressionStatement = assignemntCurrent.Parent as ExpressionStatementSyntax;
                 if(expressionStatement == null)
                 {
                     continue;
                 }
+
+                var block = assignemntCurrent.FirstAncestorOrSelf<BlockSyntax>();
+                var statements = block.Statements;
 
                 var logExpression = GetLoggingStatementForAssignment(
                                                                 methodDecl,
@@ -180,8 +193,7 @@ namespace Roslyn.Autologging
 
                 statements = statements.Insert(assignmentIndex + 1, logExpression);
 
-                var newBody = newMethod.Body.WithStatements(statements);
-                newMethod = newMethod.WithBody(newBody);
+                newMethod = newMethod.ReplaceNode(block, SF.Block(statements));
             }
 
             return newMethod;

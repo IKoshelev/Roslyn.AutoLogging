@@ -84,6 +84,7 @@ public class FooBar
     {
         object c = null;
         var d = new int[0];
+        _log.LogAssginment(nameof(TestMethod), nameof(d), d);
         var e = new Object();
         _log.LogAssginment(nameof(TestMethod), nameof(e), e);
         var f = new FooBar()
@@ -91,6 +92,48 @@ public class FooBar
             g = SomeMethod()
         };
         _log.LogAssginment(nameof(TestMethod), nameof(f), f);
+    }
+}";
+
+            TestUtil.TestAssertingEndText(
+                            testClassFileContents,
+                            "TestMethod",
+                            testClassExpectedNewContents,
+                            1);
+        }
+
+        [TestMethod]
+        public void OnAssignmentLogging_CanDealWithAssignmentsInNestedBlocks()
+        {
+            var testClassFileContents = @"
+using System;
+
+public class FooBar
+{
+    void TestMethod(int a, FooBar b)
+    {
+        a = null;
+        using(var x = new Something())
+        {
+            var b = SomeMethod();
+        }
+    }
+}";
+
+            var testClassExpectedNewContents = @"
+using System;
+
+public class FooBar
+{
+    void TestMethod(int a, FooBar b)
+    {
+        a = null;
+        _log.LogAssginment(nameof(TestMethod), nameof(a), a);
+        using (var x = new Something())
+        {
+            var b = SomeMethod();
+            _log.LogAssginment(nameof(TestMethod), nameof(b), b);
+        }
     }
 }";
 
