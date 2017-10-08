@@ -20,7 +20,7 @@ namespace Roslyn.Autologging
         public static string LoggerClassName = "_log";
         public static string LogMethodEntryName = "LogMethodEntry";
         public static string LogMethodReturnName = "LogMethodReturn";
-        public static string LogAssignmentName = "LogAssginment";
+        public static string LogAssignmentName = "LogAssignment";
 
         public sealed override async Task ComputeRefactoringsAsync(CodeRefactoringContext context)
         {
