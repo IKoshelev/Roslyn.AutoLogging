@@ -43,7 +43,36 @@ namespace Roslyn.Autologging
                 c => InsertAssignmentLogging(context.Document, methodDecl, c));
 
             context.RegisterRefactoring(action);
+
+            action = CodeAction.Create("Insert full logging",
+              c => InsertFullLogging(context.Document, methodDecl, c));
+
+            context.RegisterRefactoring(action);
         }
+
+        private async Task<Document> InsertFullLogging(
+                                                    Document document,
+                                                    MethodDeclarationSyntax methodDecl,
+                                                    CancellationToken cancellationToken)
+        {
+            var root = (await document.GetSyntaxRootAsync()).TrackNodes(methodDecl);
+            var newDocument = document.WithSyntaxRoot(root);
+
+            async Task<MethodDeclarationSyntax> GetCurrentMethodDecl() {
+                var currentRoot = (await newDocument.GetSyntaxRootAsync());
+                return currentRoot.GetCurrentNode(methodDecl);
+            }
+
+            var currentMethodDecl = await GetCurrentMethodDecl();
+            newDocument = await InsertAssignmentLogging(newDocument, currentMethodDecl, cancellationToken);
+
+            currentMethodDecl = await GetCurrentMethodDecl();
+            newDocument = await InsertEntryAndReturnLogging(newDocument, currentMethodDecl, cancellationToken);
+
+            return newDocument;
+        }
+
+
 
         private async Task<Document> InsertEntryAndReturnLogging(
                                                             Document document, 
